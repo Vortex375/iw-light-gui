@@ -1,0 +1,5 @@
+{
+  "TypicalSMD5050": { "r": 255, "g": 176, "b": 240 },
+  "Typical8mmPixel": { "r": 255, "g": 224, "b": 140 },
+  "TypicalPixelString" : { "r": 255, "g": 224, "b": 140}
+}

@@ -1,0 +1,21 @@
+{
+  "name": "iw-light-gui",
+  "version": "0.0.1",
+  "description": "GUI for Light Control",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Benjamin Schmitz",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.16.2",
+    "body-parser": "^1.18.1",
+    "express": "^4.15.4",
+    "express-http-proxy": "^1.0.6",
+    "lodash": "^4.17.4",
+    "materialize-css": "^0.100.2",
+    "onecolor": "^3.0.4",
+    "vue": "^2.4.2"
+  }
+}

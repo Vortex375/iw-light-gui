@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Light Control</title>
+  <!--Import materialize.css-->
+  <link type="text/css" rel="stylesheet" href="css/materialize.min.css"  media="screen,projection"/>
+  <link type="text/css" rel="stylesheet" href="css/main.css"  media="screen,projection"/>
+
+  <!--Let browser know website is optimized for mobile-->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+</head>
+
+<body class="grey lighten-4">
+<div id="appMain">
+
+  <div id="modalZones" class="modal">
+    <template>
+      <form>
+
+      </form>
+    </template>
+  </div>
+
+  <div id="modalConfirm" class="modal bottom-sheet">
+    <template>
+      <div class="modal-content">
+        <h4>Confirm</h4>
+        <p>{{confirmMessage}}</p>
+      </div>
+      <div class="modal-footer">
+        <a href="#!" @click="confirmed = false" class="modal-action modal-close waves-effect waves-green btn-flat ">Cancel</a>
+        <a href="#!" @click="confirmed = true" class="modal-action modal-close waves-effect waves-green btn-flat ">Confirm</a>
+      </div>
+    </template>
+  </div>
+
+  <div id="modalTemplates" class="modal">
+    <div class="modal-content">
+      <template>
+        <h4>Templates</h4>
+        <div class="input-field" v-if="saveMode">
+          <input placeholder="Name" id="newTemplateName" type="text" v-model.trim="newTemplateName" @keyup.enter="saveNewTemplate">
+          <label class="active" for="newTemplateName">New Template</label>
+        </div>
+        <ul class="collection">
+          <li class="collection-item" v-for="(tpl,index) in templates" v-if="!(tpl.system && saveMode)">
+             <a href="#!" @click="templateAction(index)">{{ tpl.name }}</a>
+             <a v-if="! tpl.system" href="#!" @click="deleteTemplate(index)" class="secondary-content"><i class="material-icons">delete</i></a>
+          </li>
+        </ul>
+      </template>
+    </div>
+  </div>
+
+  <div class="container">
+    <template>
+      <div class="row teal lighten-3">
+        <div id="zoneControl" class="col s12 m6 offset-m3">
+          <div class="center-align">
+            <!-- <a class="left waves-effect waves-teal btn-flat"><i class="material-icons">arrow_back</i></a> -->
+            <div class="input-field zone-select">
+              <select>
+                <option value="1">Zone 0</option>
+                <option value="2">Zone 1</option>
+                <option value="3">Zone 2</option>
+              </select>
+            </div>
+            <!-- <a href="#modalZones" class="waves-effect waves-teal btn-flat modal-trigger">Zone</a> -->
+            <!-- <a class="right waves-effect waves-teal btn-flat"><i class="material-icons">arrow_forward</i></a> -->
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div id="mainControl" class="col s12 m6 offset-m3">
+          <form action="#">
+            <div class="input-field">
+              <i class="material-icons prefix">brightness_5</i>
+              <p class="range-field range-with-prefix">
+                <input class="color-slider" type="range" v-model="sliders.v" min="0" max="100" v-bind:style="{background: brightnessGradient}"/>
+              </p>
+            </div>
+            <hr/>
+            <div class="input-field">
+              <i class="material-icons prefix">brush</i>
+              <p class="range-field range-with-prefix">
+                <input class="color-slider" type="range" v-model="sliders.h" min="0" max="360" v-bind:style="{background: hueGradient}"/>
+              </p>
+            </div>
+            <div class="input-field">
+              <i class="material-icons prefix">opacity</i>
+              <p class="range-field range-with-prefix">
+                <input class="color-slider" type="range" v-model="sliders.s" min="0" max="100" v-bind:style="{background: saturationGradient}"/>
+              </p>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col s12 m6 offset-m3">
+          <div v-bind:style="{background: previewColor}">&nbsp;</div>
+        </div>
+      </div>
+
+      <div class="row teal lighten-3">
+        <div id="templateControl" class="col s12 m6 offset-m3">
+          <div class="center-align">
+            <a href="#modalTemplates" class="waves-effect waves-teal btn-flat modal-trigger" @click="selectTemplate">Templates</a>
+            <a href="#modalTemplates" class="right waves-effect waves-teal btn-flat modal-trigger" @click="saveAsTemplate"><i class="material-icons">save</i></a>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+  <!--Import jQuery before materialize.js-->
+  <script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>
+  <script type="text/javascript" src="js/materialize.js"></script>
+  <script type="text/javascript" src="js/vue.js"></script>
+  <script type="text/javascript" src="js/axios.js"></script>
+  <script type="text/javascript" src="js/one-color.js"></script>
+  <script type="text/javascript" src="js/lodash.js"></script>
+  <script>
+  ;(function($, Vue) {
+    /* global events */
+    window.EventBus = new Vue({
+
+    })
+
+    function toRGB(h, s, v) {
+      var color = one.color("hsv(" + h + "," + s +  "%, " + v + "%)")
+
+      return {r: Math.round(255 * color.red()), g: Math.round(255 * color.green()), b: Math.round(255 * color.blue())}
+    }
+
+    function toHSV(r, g, b) {
+      var color = one.color("rgb(" + r + "," + g +  ", " + b + ")")
+
+      return {h: Math.round(360 * color.h()), s: Math.round(100 * color.s()), v: Math.round(100 * color.v())}
+    }
+
+    var appMain = new Vue({
+      el: "#appMain",
+
+      data: {
+        sliders: {
+          h: 0,
+          s: 0,
+          v: 0
+        },
+        zone: 0,
+        templates: [],
+        saveMode: false,
+        newTemplateName: "",
+        confirmMessage: "",
+        confirmed: false
+      },
+
+      computed: {
+        currentColor: function() {
+          return toRGB(this.sliders.h, this.sliders.s, this.sliders.v)
+        },
+        previewColor: function() {
+          return "rgb(" + this.currentColor.r + "," + this.currentColor.g + "," + this.currentColor.b + ")"
+        },
+        brightnessGradient: function() {
+          let rgb = toRGB(this.sliders.h, this.sliders.s, 100)
+          return "linear-gradient(to right, black, rgb(" + rgb.r + "," + rgb.g + "," + rgb.b + "))"
+        },
+        hueGradient: function() {
+          return "linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)"
+        },
+        saturationGradient: function() {
+          let rgb = toRGB(this.sliders.h, 100, 100)
+          return "linear-gradient(to right, white, rgb(" + rgb.r + "," + rgb.g + "," + rgb.b + "))"
+        }
+      },
+
+      watch: {
+        currentColor: function (val) {
+          let rgb = toRGB(this.sliders.h, this.sliders.s, 100)
+          let brightness = parseInt(this.sliders.v) / 100
+
+          axios.post("/service/record/light-control/zone/" + this.zone, {
+            brightness: brightness,
+            value: {
+              r: rgb.r,
+              g: rgb.g,
+              b: rgb.b
+            }
+          })
+          .then(function (response) {
+            console.log("sent", brightness, "got", response)
+          })
+          .catch(function (error) {
+            console.error(error)
+          })
+        }
+      },
+
+      mounted: function() {
+        $('.modal').modal()
+        $('select').material_select();
+        $("#modalConfirm").modal({
+          complete: () => this.confirmComplete()
+        })
+
+        axios.get("/service/record/light-control/zone/" + this.zone)
+        .then(response => {
+          this.sliders.v = 100 * response.data.brightness
+          let color = response.data.value
+          this.setColor(color.r, color.g, color.b)
+        })
+        .catch(error => {
+          console.error(error)
+        })
+      },
+
+      methods: {
+        refreshTemplates: function() {
+          axios.get("/templates")
+          .then(response => {
+            console.log(response)
+            this.templates = _.map(response.data, (value, key) => _.assign({name: key}, value))
+          })
+        },
+
+        templateAction: function(index) {
+          if (this.saveMode) {
+            this.overwriteTemplate(index)
+          } else {
+            this.applyTemplate(index)
+          }
+        },
+
+        applyTemplate: function(index) {
+          const tpl = this.templates[index]
+          if (!tpl) {
+            console.error("missing template", index)
+            return
+          }
+
+          let value = _.pick(tpl, ["r", "g", "b"])
+          axios.post("/service/record/light-control/zone/" + this.zone, {
+            value: value
+          })
+          .then(() =>console.log("sent", tpl, "got", response))
+          .catch(error => console.log(error))
+
+          this.setColor(value.r, value.g, value.b)
+        },
+
+        saveNewTemplate: function() {
+          console.log("save new template", this.newTemplateName)
+          if (this.newTemplateName == "") {
+            return
+          }
+
+          if (_.find(this.templates, (tpl) => tpl.name == this.newTemplateName)) {
+            this.confirmMessage = `Overwrite existing template "${this.newTemplateName}"?`
+            this.confirm(confirmed => {
+              if (confirmed) {
+                this.doSaveNewTemplate()
+              } else {
+                $('#newTemplateName').focus()
+              }
+            })
+          } else {
+            this.doSaveNewTemplate()
+          }
+        },
+
+        doSaveNewTemplate: function () {
+          console.log("saving template", this.newTemplateName)
+          let rgb = toRGB(this.sliders.h, this.sliders.s, 100)
+          let post = {}
+          post[this.newTemplateName] = {
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b
+          }
+
+          axios.post("/templates", post)
+          .then(() => this.refreshTemplates())
+          .catch(error => console.log(error))
+
+          this.newTemplateName = ""
+        },
+
+        overwriteTemplate: function(index) {
+          console.log("overwrite template", index, this.templates[index])
+          this.newTemplateName = this.templates[index].name
+          this.saveNewTemplate()
+        },
+
+        deleteTemplate: function(index) {
+          console.log("delete template", index, this.templates[index])
+          let templateName = this.templates[index].name
+          this.confirmMessage = `Delete template "${templateName}"?`
+          this.confirm(confirmed => {
+            if (confirmed) {
+              console.log("delete template", templateName)
+              axios.delete(`/templates/${encodeURIComponent(templateName)}`)
+              .then(() => this.refreshTemplates())
+              .catch(error => console.log(error))
+            }
+          })
+        },
+
+        setColor: function (r, g, b) {
+          let hsv = toHSV(r, g, b)
+
+          this.sliders.h = hsv.h
+          this.sliders.s = hsv.s
+        },
+
+        selectTemplate: function () {
+          this.saveMode = false
+          this.refreshTemplates()
+        },
+
+        saveAsTemplate: function() {
+          this.saveMode = true
+          this.newTemplateName = ""
+          this.refreshTemplates()
+          setTimeout(function() {
+            $('#newTemplateName').focus()
+          }, 10)
+        },
+
+        confirm: function(cb) {
+          this.confirmCallback = cb
+          this.confirmed = false
+          $('#modalConfirm').modal('open');
+        },
+
+        confirmComplete: function () {
+          let confirmed = this.confirmed
+          this.confirmed = false
+          console.log("confirm complete :", confirmed)
+          if (this.confirmCallback) {
+            this.confirmCallback(confirmed)
+          }
+          this.confirmCallback = undefined
+        }
+      }
+    })
+
+  })(jQuery, Vue)
+  </script>
+</body>
+</html>
