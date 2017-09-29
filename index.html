@@ -209,7 +209,11 @@
 
         axios.get("/service/record/light-control/zone/" + this.zone)
         .then(response => {
-          this.sliders.v = 100 * response.data.brightness
+          let brightness = response.data.brightness
+          if ( ! _.isNumber(brightness)) {
+            brightness = 0
+          }
+          this.sliders.v = 100 * brightness
           let color = response.data.value
           this.setColor(color.r, color.g, color.b)
         })
