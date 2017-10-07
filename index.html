@@ -13,14 +13,6 @@
 <body class="grey lighten-4">
 <div id="appMain">
 
-  <div id="modalZones" class="modal">
-    <template>
-      <form>
-
-      </form>
-    </template>
-  </div>
-
   <div id="modalConfirm" class="modal bottom-sheet">
     <template>
       <div class="modal-content">
@@ -59,10 +51,10 @@
           <div class="center-align">
             <!-- <a class="left waves-effect waves-teal btn-flat"><i class="material-icons">arrow_back</i></a> -->
             <div class="input-field zone-select">
-              <select>
-                <option value="1">Zone 0</option>
-                <option value="2">Zone 1</option>
-                <option value="3">Zone 2</option>
+              <select id="zoneSelect">
+                <option value="0">Zone 0</option>
+                <option value="1">Zone 1</option>
+                <option value="2">Zone 2</option>
               </select>
             </div>
             <!-- <a href="#modalZones" class="waves-effect waves-teal btn-flat modal-trigger">Zone</a> -->
@@ -183,7 +175,7 @@
           let rgb = toRGB(this.sliders.h, this.sliders.s, 100)
           let brightness = parseInt(this.sliders.v) / 100
 
-          axios.post("/service/record/light-control/zone/" + this.zone, {
+          axios.post("/service/record/light-control/zone/" + parseInt(this.zone), {
             brightness: brightness,
             value: {
               r: rgb.r,
@@ -197,6 +189,10 @@
           .catch(function (error) {
             console.error(error)
           })
+        },
+
+        zone: function (val) {
+          this.refresh()
         }
       },
 
@@ -207,22 +203,31 @@
           complete: () => this.confirmComplete()
         })
 
-        axios.get("/service/record/light-control/zone/" + this.zone)
-        .then(response => {
-          let brightness = response.data.brightness
-          if ( ! _.isNumber(brightness)) {
-            brightness = 0
-          }
-          this.sliders.v = 100 * brightness
-          let color = response.data.value
-          this.setColor(color.r, color.g, color.b)
+        const zoneSelect = $('#zoneSelect')
+        zoneSelect.on('change', () => {
+          this.zone = zoneSelect.val()
         })
-        .catch(error => {
-          console.error(error)
-        })
+
+        this.refresh()
       },
 
       methods: {
+        refresh: function () {
+          axios.get("/service/record/light-control/zone/" + parseInt(this.zone))
+          .then(response => {
+            let brightness = response.data.brightness
+            if ( ! _.isNumber(brightness)) {
+              brightness = 0
+            }
+            this.sliders.v = 100 * brightness
+            let color = response.data.value
+            this.setColor(color.r, color.g, color.b)
+          })
+          .catch(error => {
+            console.error(error)
+          })
+        },
+
         refreshTemplates: function() {
           axios.get("/templates")
           .then(response => {
@@ -247,7 +252,7 @@
           }
 
           let value = _.pick(tpl, ["r", "g", "b"])
-          axios.post("/service/record/light-control/zone/" + this.zone, {
+          axios.post("/service/record/light-control/zone/" + parseInt(this.zone), {
             value: value
           })
           .then(() =>console.log("sent", tpl, "got", response))
