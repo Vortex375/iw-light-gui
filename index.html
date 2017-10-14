@@ -175,13 +175,20 @@
           let rgb = toRGB(this.sliders.h, this.sliders.s, 100)
           let brightness = parseInt(this.sliders.v) / 100
 
-          axios.post("/service/record/light-control/zone/" + parseInt(this.zone), {
-            brightness: brightness,
-            value: {
-              r: rgb.r,
-              g: rgb.g,
-              b: rgb.b
-            }
+          axios.post("/service", {
+            body: [{
+              topic: "record",
+              action: "write",
+              recordName: "light-control/zone/" + parseInt(this.zone),
+              data: {
+                brightness: brightness,
+                value: {
+                  r: rgb.r,
+                  g: rgb.g,
+                  b: rgb.b
+                }
+              }
+            }]
           })
           .then(function (response) {
             console.log("sent", brightness, "got", response)
@@ -213,14 +220,21 @@
 
       methods: {
         refresh: function () {
-          axios.get("/service/record/light-control/zone/" + parseInt(this.zone))
+          axios.post("/service", {
+            body: [{
+              topic: "record",
+              action: "read",
+              recordName: "light-control/zone/" + + parseInt(this.zone)
+            }]
+          })
           .then(response => {
-            let brightness = response.data.brightness
+            let data = response.data.body[0].data
+            let brightness = data.brightness
             if ( ! _.isNumber(brightness)) {
               brightness = 0
             }
             this.sliders.v = 100 * brightness
-            let color = response.data.value
+            let color = data.value
             this.setColor(color.r, color.g, color.b)
           })
           .catch(error => {
@@ -252,8 +266,14 @@
           }
 
           let value = _.pick(tpl, ["r", "g", "b"])
-          axios.post("/service/record/light-control/zone/" + parseInt(this.zone), {
-            value: value
+          axios.post("/service", {
+            body: [{
+              topic: "record",
+              action: "write",
+              recordName: "light-control/zone/" + parseInt(this.zone),
+              path: "value",
+              data: value
+            }]
           })
           .then(() =>console.log("sent", tpl, "got", response))
           .catch(error => console.log(error))
