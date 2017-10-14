@@ -180,13 +180,17 @@
               topic: "record",
               action: "write",
               recordName: "light-control/zone/" + parseInt(this.zone),
+              path: "brightness",
+              data: brightness
+            }, {
+              topic: "record",
+              action: "write",
+              recordName: "light-control/zone/" + parseInt(this.zone),
+              path: "value",
               data: {
-                brightness: brightness,
-                value: {
-                  r: rgb.r,
-                  g: rgb.g,
-                  b: rgb.b
-                }
+                r: rgb.r,
+                g: rgb.g,
+                b: rgb.b
               }
             }]
           })
