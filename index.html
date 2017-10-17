@@ -112,14 +112,18 @@
   <script type="text/javascript" src="js/materialize.js"></script>
   <script type="text/javascript" src="js/vue.js"></script>
   <script type="text/javascript" src="js/axios.js"></script>
+  <script type="text/javascript" src="js/deepstream.js"></script>
   <script type="text/javascript" src="js/one-color.js"></script>
   <script type="text/javascript" src="js/lodash.js"></script>
   <script>
   ;(function($, Vue) {
-    /* global events */
-    window.EventBus = new Vue({
-
+    /* deepstream connection */
+    var ds = deepstream("bananapi:6020", {
+      transports: ["websocket"]
     })
+    ds.login()
+
+    /* colorspace conversion */
 
     function toRGB(h, s, v) {
       var color = one.color("hsv(" + h + "," + s +  "%, " + v + "%)")
@@ -133,6 +137,8 @@
       return {h: Math.round(360 * color.h()), s: Math.round(100 * color.s()), v: Math.round(100 * color.v())}
     }
 
+    /* Main Application */
+
     var appMain = new Vue({
       el: "#appMain",
 
@@ -142,6 +148,8 @@
           s: 0,
           v: 0
         },
+        record: null,
+        maskUpdates: false, /* set while applying updates from server to avoid loop */
         zone: 0,
         templates: [],
         saveMode: false,
@@ -172,38 +180,23 @@
 
       watch: {
         currentColor: function (val) {
+          if (this.maskUpdates) {
+            return
+          }
+
           let rgb = toRGB(this.sliders.h, this.sliders.s, 100)
           let brightness = parseInt(this.sliders.v) / 100
 
-          axios.post("/service", {
-            body: [{
-              topic: "record",
-              action: "write",
-              recordName: "light-control/zone/" + parseInt(this.zone),
-              path: "brightness",
-              data: brightness
-            }, {
-              topic: "record",
-              action: "write",
-              recordName: "light-control/zone/" + parseInt(this.zone),
-              path: "value",
-              data: {
-                r: rgb.r,
-                g: rgb.g,
-                b: rgb.b
-              }
-            }]
-          })
-          .then(function (response) {
-            console.log("sent", brightness, "got", response)
-          })
-          .catch(function (error) {
-            console.error(error)
+          this.record.set("brightness", brightness)
+          this.record.set("value", {
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b
           })
         },
 
         zone: function (val) {
-          this.refresh()
+          this.subscribe()
         }
       },
 
@@ -214,25 +207,26 @@
           complete: () => this.confirmComplete()
         })
 
+        /* v-model is not working on the materialize select */
         const zoneSelect = $('#zoneSelect')
         zoneSelect.on('change', () => {
           this.zone = zoneSelect.val()
         })
 
-        this.refresh()
+        this.subscribe()
       },
 
       methods: {
-        refresh: function () {
-          axios.post("/service", {
-            body: [{
-              topic: "record",
-              action: "read",
-              recordName: "light-control/zone/" + + parseInt(this.zone)
-            }]
-          })
-          .then(response => {
-            let data = response.data.body[0].data
+        subscribe: function () {
+          if (this.record) {
+            this.record.discard()
+            this.record = null
+          }
+          this.record = ds.record.getRecord("light-control/zone/" + parseInt(this.zone))
+
+          this.record.subscribe(null, (data) => {
+            this.maskUpdates = true
+
             let brightness = data.brightness
             if ( ! _.isNumber(brightness)) {
               brightness = 0
@@ -240,10 +234,11 @@
             this.sliders.v = 100 * brightness
             let color = data.value
             this.setColor(color.r, color.g, color.b)
-          })
-          .catch(error => {
-            console.error(error)
-          })
+
+            setTimeout(() => this.maskUpdates = false, 0)
+          }, true)
+
+          this.record.on("error", (err) => console.error(err))
         },
 
         refreshTemplates: function() {
@@ -270,18 +265,7 @@
           }
 
           let value = _.pick(tpl, ["r", "g", "b"])
-          axios.post("/service", {
-            body: [{
-              topic: "record",
-              action: "write",
-              recordName: "light-control/zone/" + parseInt(this.zone),
-              path: "value",
-              data: value
-            }]
-          })
-          .then(() =>console.log("sent", tpl, "got", response))
-          .catch(error => console.log(error))
-
+          this.record.set("value", value)
           this.setColor(value.r, value.g, value.b)
         },
 
